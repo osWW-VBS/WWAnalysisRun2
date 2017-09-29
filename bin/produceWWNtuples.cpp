@@ -235,22 +235,12 @@ int main (int argc, char** argv)
 
   int nInputFiles = sampleName.size();
 
-  if (isLocal==1) nInputFiles=20;
+  if (isLocal==1) nInputFiles=1;
   cout<<"==> Total number of input files : "<<nInputFiles<<endl;
 
   TH1D *MCpu = new TH1D("MCpu","",75,0,75);
   TH1D *MCpu_up = new TH1D("MCpu_up","",75,0,75);
   TH1D *MCpu_down = new TH1D("MCpu_down","",75,0,75);
-  //TH1D *puWeight = (TH1D*) pileupHisto->Clone();
-  //puWeight->SetName("puWeight");
-  //TH1D *puWeight_up = (TH1D*) pileupHisto->Clone();
-  //puWeight_up->SetName("puWeight_up");
-  //TH1D *puWeight_down = (TH1D*) pileupHisto->Clone();
-  //puWeight_down->SetName("puWeight_down");
-  //puWeight->SetBins(75,0,75);
-  //puWeight_up->SetBins(75,0,75);
-  //puWeight_down->SetBins(75,0,75);
-
   
   int nNegEvents=0; 
   int RunEntry = 500000;
@@ -286,9 +276,7 @@ int main (int argc, char** argv)
   cout<<"==> Total number of events : "<<TotalNumberOfEvents<<endl;
   cout<<"==> Total number of negative events : "<<nNegEvents<<endl;
   //puWeight->Divide(MCpu);
-  //puWeight->Divide(puWeights);
-  //puWeight_up->Divide(puWeightsUp);
-  //puWeight_down->Divide(puWeightsDown);
+
   float weight = std::atof(xSecWeight.c_str())/TotalNumberOfEvents;
   int totalEntries=0;
 
@@ -1795,7 +1783,7 @@ int main (int argc, char** argv)
         cutEff[10]++;
     
     WWTree->totalEventWeight = WWTree->genWeight*WWTree->pu_Weight*WWTree->top1_NNLO_Weight*WWTree->top2_NNLO_Weight*WWTree->trig_eff_Weight*WWTree->id_eff_Weight;
-    
+   
     
     WWTree->nEvents = TotalNumberOfEvents;
     WWTree->nNegEvents = nNegEvents;
