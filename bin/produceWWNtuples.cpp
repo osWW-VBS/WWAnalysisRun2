@@ -244,7 +244,7 @@ int main (int argc, char** argv)
 
   int nInputFiles = sampleName.size();
 
-  if (isLocal==1) nInputFiles = 1;
+  if (isLocal==1) nInputFiles = 3;
   cout<<"==> Total number of input files : "<<nInputFiles<<endl;
 
   TH1D *MCpu = new TH1D("MCpu","",75,0,75);
@@ -520,572 +520,6 @@ int main (int argc, char** argv)
 
 
 
-    if(applyTrigger==1)
-      if(!(triggerMenu.pass("HLT_IsoMu24_v*",info->triggerBits) || triggerMenu.pass("HLT_IsoTkMu24_v*",info->triggerBits) ||  triggerMenu.pass("HLT_Ele27_WPTight_Gsf_v*",info->triggerBits))) continue;
-  
-    /////////////////THE SELECTED LEPTON
-    int nTightEle=0, nLooseEle=0;
-    int nTightMu=0, nLooseMu=0;
-    double pt_cut = 20;
-    double leadelept_cut = 30;
-    double leadmupt_cut = 27;
-    electronArr->Clear();
-    electronBr->GetEntry(jentry);
-    const baconhep::TElectron *leadele = NULL;
-    const baconhep::TElectron *subele = NULL;
-    double iso = 1.5;
-    for (int i=0; i<electronArr->GetEntries(); i++) {
-      const baconhep::TElectron *ele = (baconhep::TElectron*)((*electronArr)[i]);
-      if (ele->pt<=pt_cut) continue;
-      if (fabs(ele->eta)>=2.5) continue;
-      if(!passEleLooseSel(ele,info->rhoIso)) continue;
-      nLooseEle++;
-      if(!passEleTightSel(ele,info->rhoIso)) continue;
-      ELE.SetPtEtaPhiE(ele->pt,ele->eta,ele->phi,ele->ecalEnergy);
-      tightEle.push_back(ELE);
-      nTightEle++;
-      iso = ele->chHadIso + TMath::Max(ele->neuHadIso + ele->gammaIso - 0.5*(ele->puIso), double(0));
-      if(!leadele || ele->pt>leadele->pt)
-	{
-	  if(!(ele->pt>leadelept_cut)) continue;
-	  subele = leadele;
-	  leadele = ele;
-	  WWTree->l_iso1 = iso*ele->pt;
-	}
-      else if (!subele || ele->pt > subele->pt)
-	{
-	  subele = ele;
-	  WWTree->l_iso2 = iso*ele->pt;
-	}
-    }
-    if(leadele)
-      {
-	WWTree->l_pt1  = leadele->pt;
-	WWTree->l_eta1 = leadele->eta;
-	WWTree->l_phi1 = leadele->phi;	
-	WWTree->l_e1 = leadele->ecalEnergy;	
-	WWTree->l_charge1 = leadele->q;
-      }
-    if(subele)
-      {
-	WWTree->l_pt2  = subele->pt;
-	WWTree->l_eta2 = subele->eta;
-	WWTree->l_phi2 = subele->phi;	
-	WWTree->l_e2 = subele->ecalEnergy;	
-	WWTree->l_charge2 = subele->q;
-      }
-    muonArr->Clear();
-    muonBr->GetEntry(jentry);
-    const baconhep::TMuon *leadmu = NULL;
-    const baconhep::TMuon *submu = NULL;
-    double leadmue=-999, submue = -999;
-    iso = 1.5;
-    for(Int_t i=0; i<muonArr->GetEntries(); i++) {
-      const baconhep::TMuon *mu = (baconhep::TMuon*)((*muonArr)[i]);
-      if (mu->pt<pt_cut) continue;
-      if (fabs(mu->eta)>=2.4) continue;
-      if(!passMuonLooseSel(mu)) continue;
-      nLooseMu++;
-      if(!passMuonTightSel(mu)) continue;
-      nTightMu++;
-      MU.SetPtEtaPhiM(mu->pt,mu->eta,mu->phi,0.1057);
-      tightMuon.push_back(MU);
-      iso = mu->chHadIso + TMath::Max(mu->neuHadIso + mu->gammaIso - 0.5*(mu->puIso), double(0));
-      if(!leadmu || mu->pt>leadmu->pt)
-	{
-	  if(!(mu->pt>leadmupt_cut)) continue;
-	  submu = leadmu;
-	  leadmu = mu;
-	  leadmue = MU.E();
-	  WWTree->l_iso1 = iso*mu->pt;
-	}
-      else if (!submu || mu->pt > submu->pt)
-	{
-	  submu = mu;
-	  submue = MU.E();
-	  WWTree->l_iso2 = iso*mu->pt;
-	}
-    }   
-    if(leadmu)
-      {
-	WWTree->l_pt1  = leadmu->pt;
-	WWTree->l_eta1 = leadmu->eta;
-	WWTree->l_phi1 = leadmu->phi;	
-	WWTree->l_e1 = leadmue;	
-	WWTree->l_charge1 = leadmu->q;
-      }
-    if(submu)
-      {
-	WWTree->l_pt2  = submu->pt;
-	WWTree->l_eta2 = submu->eta;
-	WWTree->l_phi2 = submu->phi;	
-	WWTree->l_e2 = submue;	
-	WWTree->l_charge2 = submu->q;
-      }
-    if(!(WWTree->l_pt1>0)) continue;
-    if ((nTightMu+nTightEle)==0) continue; //no leptons with required ID
-    if((nLooseEle+nLooseMu)>2) continue;
-    if(nTightMu>0 && nLooseEle>0) continue;
-    if(nTightEle>0 && nLooseMu>0) continue;
-    if(nTightMu==1 && nLooseMu>1) continue;
-    if(nTightEle==1 && nLooseEle>1) continue;
-    if(nTightMu>0){
-      WWTree->type=0;
-      leptonName = "mu";	// Added this part for neutrino pz calculation in case there is w-boson.
-    }else{
-      WWTree->type=1;
-      leptonName = "el";
-    }
-    
-    cutEff[2]++;
-    
-    LEP1.SetPtEtaPhiE(WWTree->l_pt1,WWTree->l_eta1,WWTree->l_phi1,WWTree->l_e1);
-    LEP2.SetPtEtaPhiE(WWTree->l_pt2,WWTree->l_eta2,WWTree->l_phi2,WWTree->l_e2);
-    if(WWTree->l_pt2>0)
-      {
-	WWTree->dilep_pt  = (LEP1+LEP2).Pt();
-	WWTree->dilep_eta = (LEP1+LEP2).Eta();
-	WWTree->dilep_phi = (LEP1+LEP2).Phi();	
-	WWTree->dilep_m = (LEP1+LEP2).M();	
-      }
-
-    //ID & GSF efficiency SF for electrons (https://twiki.cern.ch/twiki/bin/view/CMS/EgammaIDRecipesRun2#Electron_efficiencies_and_scale)
-    if (strcmp(leptonName.c_str(),"el")==0 && isMC==1) {
-	//  apply ID, ISO SF's
-	WWTree->id_eff_Weight = GetSFs_Lepton(WWTree->l_pt1, WWTree->l_eta1, hIDIsoEle);	// Get Scale factor corresponding to the pt and eta.
-	// apply GSF/RECO SF's for electrons
-	WWTree->id_eff_Weight = WWTree->id_eff_Weight*GetSFs_Lepton(WWTree->l_pt1, WWTree->l_eta1, hGSFCorrEle);
-	WWTree->trig_eff_Weight = GetSFs_Lepton(WWTree->l_pt1, WWTree->l_eta1, hTriggerEle);
-    	
-	if(WWTree->l_pt2>0){
-	WWTree->id_eff_Weight2 = GetSFs_Lepton(WWTree->l_pt2, WWTree->l_eta2, hIDIsoEle);	// Get Scale factor corresponding to the pt and eta.
-	// apply GSF/RECO SF's for electrons
-	WWTree->id_eff_Weight2 = WWTree->id_eff_Weight2*GetSFs_Lepton(WWTree->l_pt2, WWTree->l_eta2, hGSFCorrEle);
-	WWTree->trig_eff_Weight2 = GetSFs_Lepton(WWTree->l_pt2, WWTree->l_eta2, hTriggerEle);
-	}
-    }
-
-    //ID&ISO efficiency SF for muons (https://twiki.cern.ch/twiki/bin/view/CMS/MuonWorkInProgressAndPagResults)
-    if (strcmp(leptonName.c_str(),"mu")==0 && isMC==1) {
-	//  apply ID SF's
-	if (WWTree->run<278820){
-		WWTree->id_eff_Weight = GetSFs_Lepton(WWTree->l_pt1, abs(WWTree->l_eta1), hIDMuA);
-		if (WWTree->l_pt2>0) WWTree->id_eff_Weight2 = GetSFs_Lepton(WWTree->l_pt2, abs(WWTree->l_eta2), hIDMuA);}
-	else{
-		WWTree->id_eff_Weight = GetSFs_Lepton(WWTree->l_pt1, abs(WWTree->l_eta1), hIDMuB);
-		if (WWTree->l_pt2>0) WWTree->id_eff_Weight2 = GetSFs_Lepton(WWTree->l_pt2, abs(WWTree->l_eta2), hIDMuB);}
-
-	//  apply ISO SF's
-	if (WWTree->run<278820){
-		WWTree->id_eff_Weight = WWTree->id_eff_Weight*GetSFs_Lepton(WWTree->l_pt1, abs(WWTree->l_eta1), hIsoMuA);
-		WWTree->id_eff_Weight2 = WWTree->id_eff_Weight2*GetSFs_Lepton(WWTree->l_pt2, abs(WWTree->l_eta2), hIsoMuA);}
-	else{
-		WWTree->id_eff_Weight = WWTree->id_eff_Weight*GetSFs_Lepton(WWTree->l_pt1, abs(WWTree->l_eta1), hIsoMuB);
-		WWTree->id_eff_Weight2 = WWTree->id_eff_Weight2*GetSFs_Lepton(WWTree->l_pt2, abs(WWTree->l_eta2), hIsoMuB);}
-	
-	// apply Trigger SF's
-	if (WWTree->run<278820){
-		WWTree->trig_eff_Weight  = GetSFs_Lepton(WWTree->l_pt1, abs(WWTree->l_eta1), hTriggerMuA);
-		WWTree->trig_eff_Weight2 = GetSFs_Lepton(WWTree->l_pt2, abs(WWTree->l_eta2), hTriggerMuA);}
-	else{
-		WWTree->trig_eff_Weight  = GetSFs_Lepton(WWTree->l_pt1, abs(WWTree->l_eta1), hTriggerMuB);
-		WWTree->trig_eff_Weight2 = GetSFs_Lepton(WWTree->l_pt2, abs(WWTree->l_eta2), hTriggerMuB);}
-    }
-	
-    //////////////THE MET
-    
-    // //preselection on met
-     //if (info->pfMETC < 0) continue;
-     cutEff[3]++;
-    
-    // Calculate Neutrino Pz using all the possible choices : 
-    // type0 -> if real roots, pick the one nearest to the lepton Pz except when the Pz so chosen
-    //               is greater than 300 GeV in which case pick the most central root.
-    // type1 -> type = 1: if real roots, choose the one closest to the lepton Pz if complex roots, use only the real part.
-    //          type = 2: if real roots, choose the most central solution. if complex roots, use only the real part. 
-    //          type = 3: if real roots, pick the largest value of the cosine*
-    
-    float Wmass = 80.385;
-  
-    TLorentzVector W_Met, W_Met_jes_up, W_Met_jes_dn, W_Met_jer_up, W_Met_jer_dn, AK4Up, AK4Down, AK4Up_Puppi, AK4Down_Puppi;
-  
-    W_Met.SetPxPyPzE(info->pfMETC * TMath::Cos(info->pfMETCphi), info->pfMETC * TMath::Sin(info->pfMETCphi), 0., sqrt(info->pfMETC*info->pfMETC));
-    W_Met_jer_up.SetPxPyPzE(info->pfMETCjerup * TMath::Cos(info->pfMETCphijerup), info->pfMETCjerup * TMath::Sin(info->pfMETCphijerup), 0., sqrt(info->pfMETCjerup*info->pfMETCjerup) );
-    W_Met_jer_dn.SetPxPyPzE(info->pfMETCjerdn * TMath::Cos(info->pfMETCphijerdn), info->pfMETCjerdn * TMath::Sin(info->pfMETCphijerdn), 0., sqrt(info->pfMETCjerdn*info->pfMETCjerdn) );
-
-    ////////////////////////////////////////////////////////////////
-    //		
-    //		MET JES Calculate
-    //
-    ////////////////////////////////////////////////////////////////
-    jetArr->Clear();
-    jetBr->GetEntry(jentry);
-    for ( int i=0; i<jetArr->GetEntries(); i++) //loop on AK4 jet
-    {
-      const baconhep::TJet *jet = (baconhep::TJet*)((*jetArr)[i]);
-      TLorentzVector AK4_LV_temp, AK4_LV_temp2;
-
-      // Get uncertanity
-      double unc = func(jet->pt, jet->eta, fJetUnc_AK4chs); 
-
-      // Get AK4 LorentzVector 
-      AK4_LV_temp.SetPtEtaPhiM(jet->pt, jet->eta, jet->phi, jet->mass);
-
-      // calculate Up variation
-      AK4_LV_temp2.SetPtEtaPhiM((1.+unc)*jet->pt, jet->eta, jet->phi, (1.+unc)*jet->mass);
-      AK4Up += AK4_LV_temp2 - AK4_LV_temp;
-
-      // calculate Down variation
-      AK4_LV_temp2.SetPtEtaPhiM((1.-unc)*jet->pt, jet->eta, jet->phi, (1.-unc)*jet->mass);
-      AK4Down += AK4_LV_temp2 - AK4_LV_temp;
-    }
-    W_Met_jes_up = W_Met + AK4Up;
-    W_Met_jes_dn = W_Met + AK4Down;
-    //////////////////////////////////////// END: MET JES Calculate
-
-
-    // type0 calculation of neutrino pZ
-    METzCalculator NeutrinoPz_type0;
-    METzCalculator NeutrinoPz_type0_jes_up;
-    METzCalculator NeutrinoPz_type0_jes_dn;
-    METzCalculator NeutrinoPz_type0_jer_up;
-    METzCalculator NeutrinoPz_type0_jer_dn;
-
-    METzCalculator_Run2 NeutrinoPz_run2;
-    NeutrinoPz_type0.SetMET(W_Met);
-    NeutrinoPz_type0.SetLepton(LEP1);
-    NeutrinoPz_type0.SetLeptonType(leptonName.c_str());
-    
-    NeutrinoPz_type0_jes_up.SetMET(W_Met_jes_up);
-    NeutrinoPz_type0_jes_up.SetLepton(LEP1);
-    NeutrinoPz_type0_jes_up.SetLeptonType(leptonName.c_str());
-    
-    NeutrinoPz_type0_jes_dn.SetMET(W_Met_jes_dn);
-    NeutrinoPz_type0_jes_dn.SetLepton(LEP1);
-    NeutrinoPz_type0_jes_dn.SetLeptonType(leptonName.c_str());
-
-    NeutrinoPz_type0_jer_up.SetMET(W_Met_jer_up);
-    NeutrinoPz_type0_jer_up.SetLepton(LEP1);
-    NeutrinoPz_type0_jer_up.SetLeptonType(leptonName.c_str());
-
-    NeutrinoPz_type0_jer_dn.SetMET(W_Met_jer_dn);
-    NeutrinoPz_type0_jer_dn.SetLepton(LEP1);
-    NeutrinoPz_type0_jer_dn.SetLeptonType(leptonName.c_str());
-
-    
-    NeutrinoPz_run2.SetMET(W_Met);
-    NeutrinoPz_run2.SetLepton(LEP1);
-    NeutrinoPz_run2.SetLeptonType(leptonName.c_str());
-  
-    double pz1_type0 = NeutrinoPz_type0.Calculate(); // Default one -> according to type0
-    //double pz2_type0 = NeutrinoPz_type0.getOther();  // Default one
-    
-    double pz1_run2 = NeutrinoPz_run2.Calculate();
-  
-    double pz1_type0_jes_up = NeutrinoPz_type0_jes_up.Calculate(); // Default one -> according to type0
-    double pz1_type0_jes_dn = NeutrinoPz_type0_jes_dn.Calculate(); // Default one -> according to type0
-
-    double pz1_type0_jer_up = NeutrinoPz_type0_jer_up.Calculate();
-    double pz1_type0_jer_dn = NeutrinoPz_type0_jer_dn.Calculate();
-  
-    // don't touch the neutrino pT
-    TLorentzVector W_neutrino_type0_met; 
-    W_neutrino_type0_met.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type0,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type0*pz1_type0));
-    
-    // change the neutrino pT in case of complex solution in order to make it real
-    TLorentzVector W_neutrino_type0; 
-    W_neutrino_type0.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type0,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type0*pz1_type0));
-    
-    if(NeutrinoPz_type0.IsComplex()) {// if this is a complex, change MET
-      double nu_pt1 = NeutrinoPz_type0.getPtneutrino(1);
-      double nu_pt2 = NeutrinoPz_type0.getPtneutrino(2);
-      TLorentzVector W_neutrino_1;
-      W_neutrino_1.SetPxPyPzE(nu_pt1 * TMath::Cos(info->pfMETCphi), nu_pt1 * TMath::Sin(info->pfMETCphi), pz1_type0, sqrt(nu_pt1*nu_pt1 + pz1_type0*pz1_type0) );
-      TLorentzVector W_neutrino_2;
-      W_neutrino_2.SetPxPyPzE(nu_pt2 * TMath::Cos(info->pfMETCphi), nu_pt2 * TMath::Sin(info->pfMETCphi), pz1_type0, sqrt(nu_pt2*nu_pt2 + pz1_type0*pz1_type0) );
-      
-      if ( fabs((LEP1+W_neutrino_1).M()-Wmass) < fabs((LEP1+W_neutrino_2).M()-Wmass) ) W_neutrino_type0 = W_neutrino_1;
-      else W_neutrino_type0 = W_neutrino_2;
-    }
-    
-    // type2 calculation of neutrino pZ
-    METzCalculator NeutrinoPz_type2;
-    NeutrinoPz_type2.SetMET(W_Met);
-    NeutrinoPz_type2.SetLepton(LEP1);
-    NeutrinoPz_type2.SetLeptonType(leptonName.c_str());
-    
-    double pz1_type2 = NeutrinoPz_type2.Calculate(2); // Default one -> according to type2
-    //double pz2_type2 = NeutrinoPz_type2.getOther();   // Default one
-  
-    // don't touch the neutrino pT
-    TLorentzVector W_neutrino_type2_met; 
-    W_neutrino_type2_met.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type2,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type2*pz1_type2));
-    
-    // change the neutrino pT in case of complex solution in order to make it real
-    TLorentzVector W_neutrino_type2; 
-    W_neutrino_type2.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type2,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type2*pz1_type2));
-    
-    if (NeutrinoPz_type2.IsComplex()) {// if this is a complex, change MET
-      double nu_pt1 = NeutrinoPz_type2.getPtneutrino(1);
-      double nu_pt2 = NeutrinoPz_type2.getPtneutrino(2);
-      TLorentzVector W_neutrino_1;
-      W_neutrino_1.SetPxPyPzE(nu_pt1 * TMath::Cos(info->pfMETCphi), nu_pt1 * TMath::Sin(info->pfMETCphi), pz1_type2, sqrt(nu_pt1*nu_pt1 + pz1_type2*pz1_type2) );
-      TLorentzVector W_neutrino_2;
-      W_neutrino_2.SetPxPyPzE(nu_pt2 * TMath::Cos(info->pfMETCphi), nu_pt2 * TMath::Sin(info->pfMETCphi), pz1_type2, sqrt(nu_pt2*nu_pt2 + pz1_type2*pz1_type2) );
-      
-      if ( fabs((LEP1+W_neutrino_1).M()-Wmass) < fabs((LEP1+W_neutrino_2).M()-Wmass) ) W_neutrino_type2 = W_neutrino_1;
-      else W_neutrino_type2 = W_neutrino_2;
-    }
-    
-    WWTree->pfMET = sqrt(info->pfMET*info->pfMET);
-    WWTree->pfMET_jes_up = W_Met_jes_up.Pt();		// Calculated with corrected pfMET
-    WWTree->pfMET_jes_dn = W_Met_jes_dn.Pt();		// Calculated with corrected pfMET
-    WWTree->pfMET_Phi = info->pfMETphi;
-    WWTree->pfMET_Corr = info->pfMETC;
-    WWTree->pfMET_Corr_phi = info->pfMETCphi;
-    WWTree->pfMET_Corr_Cov00 = info->pfMETCCov00;
-    WWTree->pfMET_Corr_Cov01 = info->pfMETCCov01;
-    WWTree->pfMET_Corr_Cov11 = info->pfMETCCov11;
-    WWTree->pfMET_Corr_jerup = info->pfMETCjerup;
-    WWTree->pfMET_Corr_jerdn = info->pfMETCjerdn;
-    WWTree->pfMET_Corr_jenup = info->pfMETCjenup;
-    WWTree->pfMET_Corr_jendn = info->pfMETCjendn;
-    WWTree->pfMET_Corr_uncup = info->pfMETCuncup;
-    WWTree->pfMET_Corr_uncdn = info->pfMETCuncdn;
-    WWTree->pfMET_Corr_jrsup = info->pfMETCjrsup;
-    WWTree->pfMET_Corr_jrsdn = info->pfMETCjrsdn;
-    WWTree->pfMET_Corr_phijerup = info->pfMETCphijerup;
-    WWTree->pfMET_Corr_phijerdn = info->pfMETCphijerdn;
-    WWTree->pfMET_Corr_phijenup = info->pfMETCphijenup;
-    WWTree->pfMET_Corr_phijendn = info->pfMETCphijendn;
-    WWTree->pfMET_Corr_phiuncup = info->pfMETCphiuncup;
-    WWTree->pfMET_Corr_phiuncdn = info->pfMETCphiuncdn;
-    WWTree->pfMET_Corr_phijrsup = info->pfMETCphijrsup;
-    WWTree->pfMET_Corr_phijrsdn = info->pfMETCphijrsdn;
-
-    WWTree->nu_pz_type0 = pz1_type0;
-    WWTree->nu_pz_type2 = pz1_type2;
-    WWTree->nu_pz_run2 = pz1_run2;
-    WWTree->nu_pz_isre = 1-NeutrinoPz_run2.IsComplex();
-    WWTree->nu_pz_run2_oth = NeutrinoPz_run2.getOther();
-    WWTree->nu_pz_run2_type = NeutrinoPz_run2.getType();
-  
-    
-    /////////////////THE LEPTONIC W
-  
-    NU0.SetPtEtaPhiM( GetPt_MET(info->pfMETC, info->pfMETCphi, WWTree->nu_pz_type0) , GetEta_MET(info->pfMETC, info->pfMETCphi, WWTree->nu_pz_type0), info->pfMETCphi , 0.0 );
-
-    NU0_jes_up.SetPtEtaPhiM( GetPt_MET(W_Met_jes_up.Pt(), W_Met_jes_up.Phi(), pz1_type0_jes_up), GetEta_MET(W_Met_jes_up.Pt(), W_Met_jes_up.Phi(), pz1_type0_jes_up), W_Met_jes_up.Phi() , 0.0 );
-    NU0_jes_dn.SetPtEtaPhiM( GetPt_MET(W_Met_jes_dn.Pt(), W_Met_jes_dn.Phi(), pz1_type0_jes_dn), GetEta_MET(W_Met_jes_dn.Pt(), W_Met_jes_dn.Phi(), pz1_type0_jes_dn), W_Met_jes_dn.Phi() , 0.0 );
-    NU0_jer_up.SetPtEtaPhiM( GetPt_MET(W_Met_jer_up.Pt(), W_Met_jer_up.Phi(), pz1_type0_jer_up), GetEta_MET(W_Met_jer_up.Pt(), W_Met_jer_up.Phi(), pz1_type0_jer_up), W_Met_jer_up.Phi() , 0.0);
-    NU0_jer_dn.SetPtEtaPhiM( GetPt_MET(W_Met_jer_dn.Pt(), W_Met_jer_dn.Phi(), pz1_type0_jer_dn), GetEta_MET(W_Met_jer_dn.Pt(), W_Met_jer_dn.Phi(), pz1_type0_jer_dn), W_Met_jer_dn.Phi() , 0.0);
-
-
-    
-    NU2.SetPtEtaPhiM(GetPt_MET( info->pfMETC, info->pfMETCphi, WWTree->nu_pz_type2 ), GetEta_MET( info->pfMETC, info->pfMETCphi, WWTree->nu_pz_type2 ), info->pfMETCphi, 0.0);
-    NU1.SetPtEtaPhiM(GetPt_MET( info->pfMETC, info->pfMETCphi, WWTree->nu_pz_run2  ), GetEta_MET( info->pfMETC, info->pfMETCphi, WWTree->nu_pz_run2  ), info->pfMETCphi, 0.0);
-
-  
-    W_type0 = LEP1 + NU0;
-    W_type0_jes_up = LEP1 + NU0_jes_up;
-    W_type0_jes_dn = LEP1 + NU0_jes_dn;
-    W_type0_jer_up = LEP1 + NU0_jer_up;
-    W_type0_jer_dn = LEP1 + NU0_jer_dn;
-    W_type2 = LEP1 + NU2;
-    W_run2 = LEP1 + NU1;
-  
-    WWTree->v_pt_type0 = W_type0.Pt();
-    WWTree->v_eta_type0 = W_type0.Eta();
-    WWTree->v_mt_type0 = TMath::Sqrt(2*LEP1.Et()*NU0.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU0))));
-    WWTree->v_mass_type0 = W_type0.M();
-    WWTree->v_pt_type0_jes_up = W_type0_jes_up.Pt();
-    WWTree->v_eta_type0_jes_up = W_type0_jes_up.Eta();
-    WWTree->v_mt_type0_jes_up = TMath::Sqrt(2*LEP1.Et()*NU0_jes_up.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU0_jes_up))));
-    WWTree->v_mass_type0_jes_up = W_type0_jes_up.M();
-    WWTree->v_pt_type0_jes_dn = W_type0_jes_dn.Pt();
-    WWTree->v_eta_type0_jes_dn = W_type0_jes_dn.Eta();
-    WWTree->v_mt_type0_jes_dn = TMath::Sqrt(2*LEP1.Et()*NU0_jes_dn.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU0_jes_dn))));
-    WWTree->v_mass_type0_jes_dn = W_type0_jes_dn.M();
-    WWTree->v_pt_type0_jer_up = W_type0_jer_up.Pt();
-    WWTree->v_eta_type0_jer_up = W_type0_jer_up.Eta();
-    WWTree->v_mt_type0_jer_up = TMath::Sqrt(2*LEP1.Et()*NU0_jer_up.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU0_jer_up))));
-    WWTree->v_mass_type0_jer_up = W_type0_jer_up.M();
-    WWTree->v_pt_type0_jer_dn = W_type0_jer_dn.Pt();
-    WWTree->v_eta_type0_jer_dn = W_type0_jer_dn.Eta();
-    WWTree->v_mt_type0_jer_dn = TMath::Sqrt(2*LEP1.Et()*NU0_jer_dn.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU0_jer_dn))));
-    WWTree->v_mass_type0_jer_dn = W_type0_jer_dn.M();
-
-    WWTree->v_pt_type2 = W_type2.Pt();
-    WWTree->v_pt_run2 = W_run2.Pt();
-    WWTree->v_eta_type2 = W_type2.Eta();
-    WWTree->v_eta_run2 = W_run2.Eta();
-    WWTree->v_phi = W_type2.Phi();
-    WWTree->v_mt_type2 = TMath::Sqrt(2*LEP1.Et()*NU2.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU2))));
-    WWTree->v_mt_run2 = TMath::Sqrt(2*LEP1.Et()*NU1.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU1))));
-    WWTree->v_mass_type2 = W_type2.M();
-    WWTree->v_mass_run2 = W_run2.M();
-  
-    //////////////THE PUPPI MET
-  
-    //preselection on met
-    //if(info->pfMETC<0 && info->puppETC<0) continue;
-    //cutEff[3]++;
-    
-    // Calculate Neutrino Pz using all the possible choices : 
-    // type0 -> if real roots, pick the one nearest to the lepton Pz except when the Pz so chosen
-    //               is greater than 300 GeV in which case pick the most central root.
-    // type1 -> type = 1: if real roots, choose the one closest to the lepton Pz if complex roots, use only the real part.
-    //          type = 2: if real roots, choose the most central solution. if complex roots, use only the real part. 
-    //          type = 3: if real roots, pick the largest value of the cosine*
-    
-    W_Met.SetPxPyPzE(info->puppETC * TMath::Cos(info->puppETCphi), info->puppETC * TMath::Sin(info->puppETCphi), 0., sqrt(info->puppETC*info->puppETC));
-    ////////////////////////////////////////////////////////////////
-    //		
-    //		MET PUPPI JES Calculate
-    //
-    ////////////////////////////////////////////////////////////////
-    jetArrPuppi->Clear();
-    jetBrPuppi->GetEntry(jentry);
-    for ( int i=0; i<jetArrPuppi->GetEntries(); i++) //loop on PuppiAK4 jet
-    {
-      const baconhep::TJet *jet = (baconhep::TJet*)((*jetArrPuppi)[i]);
-      TLorentzVector AK4_LV_temp, AK4_LV_temp2;
-
-      // Get AK4 LorentzVector 
-      AK4_LV_temp.SetPtEtaPhiM(jet->pt, jet->eta, jet->phi, jet->mass);
-
-      double unc = func(jet->pt, jet->eta, fJetUnc_AK4puppi); 
-      // calculate Up variation
-      AK4_LV_temp2.SetPtEtaPhiM((1.+unc)*jet->pt, jet->eta, jet->phi, (1.+unc)*jet->mass);
-      AK4Up_Puppi += AK4_LV_temp2 - AK4_LV_temp;
-
-      // calculate Down variation
-      AK4_LV_temp2.SetPtEtaPhiM((1.-unc)*jet->pt, jet->eta, jet->phi, (1.-unc)*jet->mass);
-      AK4Down_Puppi += AK4_LV_temp2 - AK4_LV_temp;
-    }
-    W_Met_jes_up = W_Met + AK4Up;
-    W_Met_jes_dn = W_Met + AK4Down;
-    //////////////////////////////////////// END: PUPPI MET JES Calculate
-    
-    if(LEP1.Pt()<=0 || W_Met.Pt() <= 0 ){ std::cerr<<" Negative Lepton - Neutrino Pt "<<std::endl; continue ; }
-    cutEff[4]++;
-  
-    // type0 calculation of neutrino pZ
-    NeutrinoPz_type0.SetMET(W_Met);
-    NeutrinoPz_type0.SetLepton(LEP1);
-    NeutrinoPz_type0.SetLeptonType(leptonName.c_str());
-    
-    NeutrinoPz_type0_jes_up.SetMET(W_Met_jes_up);
-    NeutrinoPz_type0_jes_up.SetLepton(LEP1);
-    NeutrinoPz_type0_jes_up.SetLeptonType(leptonName.c_str());
-    
-    NeutrinoPz_type0_jes_dn.SetMET(W_Met_jes_dn);
-    NeutrinoPz_type0_jes_dn.SetLepton(LEP1);
-    NeutrinoPz_type0_jes_dn.SetLeptonType(leptonName.c_str());
-    
-    NeutrinoPz_run2.SetMET(W_Met);
-    NeutrinoPz_run2.SetLepton(LEP1);
-    NeutrinoPz_run2.SetLeptonType(leptonName.c_str());
-    
-    pz1_type0 = NeutrinoPz_type0.Calculate(); // Default one -> according to type0
-    // pz2_type0 = NeutrinoPz_type0.getOther();  // Default one
-    
-    pz1_run2 = NeutrinoPz_run2.Calculate();
-    
-    pz1_type0_jes_up = NeutrinoPz_type0_jes_up.Calculate(); // Default one -> according to type0
-    pz1_type0_jes_dn = NeutrinoPz_type0_jes_dn.Calculate(); // Default one -> according to type0
-    
-    // don't touch the neutrino pT
-    W_neutrino_type0_met.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type0,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type0*pz1_type0));
-  
-    // change the neutrino pT in case of complex solution in order to make it real
-    W_neutrino_type0.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type0,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type0*pz1_type0));
-  
-    if (NeutrinoPz_type0.IsComplex()) {// if this is a complex, change MET
-      double nu_pt1 = NeutrinoPz_type0.getPtneutrino(1);
-      double nu_pt2 = NeutrinoPz_type0.getPtneutrino(2);
-      TLorentzVector W_neutrino_1;
-      W_neutrino_1.SetPxPyPzE(nu_pt1 * TMath::Cos(info->puppETCphi), nu_pt1 * TMath::Sin(info->puppETCphi), pz1_type0, sqrt(nu_pt1*nu_pt1 + pz1_type0*pz1_type0) );
-      TLorentzVector W_neutrino_2;
-      W_neutrino_2.SetPxPyPzE(nu_pt2 * TMath::Cos(info->puppETCphi), nu_pt2 * TMath::Sin(info->puppETCphi), pz1_type0, sqrt(nu_pt2*nu_pt2 + pz1_type0*pz1_type0) );
-      
-      if ( fabs((LEP1+W_neutrino_1).M()-Wmass) < fabs((LEP1+W_neutrino_2).M()-Wmass) ) W_neutrino_type0 = W_neutrino_1;
-      else W_neutrino_type0 = W_neutrino_2;
-    }
-  
-    // type2 calculation of neutrino pZ
-    NeutrinoPz_type2.SetMET(W_Met);
-    NeutrinoPz_type2.SetLepton(LEP1);
-    NeutrinoPz_type2.SetLeptonType(leptonName.c_str());
-    
-    pz1_type2 = NeutrinoPz_type2.Calculate(2); // Default one -> according to type2
-    //double pz2_type2 = NeutrinoPz_type2.getOther();   // Default one
-  
-    // don't touch the neutrino pT
-    W_neutrino_type2_met.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type2,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type2*pz1_type2));
-  
-    // change the neutrino pT in case of complex solution in order to make it real
-    W_neutrino_type2.SetPxPyPzE(W_Met.Px(),W_Met.Py(),pz1_type2,sqrt(W_Met.Pt()*W_Met.Pt()+pz1_type2*pz1_type2));
-    
-    if (NeutrinoPz_type2.IsComplex()) {// if this is a complex, change MET
-      double nu_pt1 = NeutrinoPz_type2.getPtneutrino(1);
-      double nu_pt2 = NeutrinoPz_type2.getPtneutrino(2);
-      TLorentzVector W_neutrino_1;
-      W_neutrino_1.SetPxPyPzE(nu_pt1 * TMath::Cos(info->puppETCphi), nu_pt1 * TMath::Sin(info->puppETCphi), pz1_type2, sqrt(nu_pt1*nu_pt1 + pz1_type2*pz1_type2) );
-      TLorentzVector W_neutrino_2;
-      W_neutrino_2.SetPxPyPzE(nu_pt2 * TMath::Cos(info->puppETCphi), nu_pt2 * TMath::Sin(info->puppETCphi), pz1_type2, sqrt(nu_pt2*nu_pt2 + pz1_type2*pz1_type2) );
-      
-      if ( fabs((LEP1+W_neutrino_1).M()-Wmass) < fabs((LEP1+W_neutrino_2).M()-Wmass) ) W_neutrino_type2 = W_neutrino_1;
-      else W_neutrino_type2 = W_neutrino_2;
-    }
-    
-    WWTree->pfMETpuppi = sqrt(info->puppETC*info->puppETC);
-    WWTree->pfMETpuppi_jes_up = W_Met_jes_up.Pt();
-    WWTree->pfMETpuppi_jes_dn = W_Met_jes_dn.Pt();
-    WWTree->pfMETpuppi_Phi = info->puppETphi;
-    WWTree->pfMETpuppi_Cov00 = info->puppETCov00;
-    WWTree->pfMETpuppi_Cov01 = info->puppETCov01;
-    WWTree->pfMETpuppi_Cov11 = info->puppETCov11;
-    WWTree->pfMETpuppi_Corr = info->puppETC;
-    WWTree->pfMETpuppi_Corr_phi = info->puppETCphi;
-    WWTree->pfMETpuppi_Corr_Cov00 = info->puppETCCov00;
-    WWTree->pfMETpuppi_Corr_Cov01 = info->puppETCCov01;
-    WWTree->pfMETpuppi_Corr_Cov11 = info->puppETCCov11;
-    WWTree->nu_pz_type0 = pz1_type0;
-    WWTree->nu_pz_type2 = pz1_type2;
-    WWTree->nu_pz_run2 = pz1_run2;
-    WWTree->nu_pz_isre = 1-NeutrinoPz_run2.IsComplex();
-    WWTree->nu_pz_run2_oth = NeutrinoPz_run2.getOther();
-    WWTree->nu_pz_run2_type = NeutrinoPz_run2.getType();
-
-    
-    /////////////////THE LEPTONIC W PUPPI
-    
-    NU0_puppi.SetPxPyPzE(info->puppETC*TMath::Cos(info->puppETCphi),info->puppETC*TMath::Sin(info->puppETCphi),WWTree->nu_pz_type0,TMath::Sqrt(WWTree->pfMETpuppi_Corr*WWTree->pfMETpuppi_Corr+WWTree->nu_pz_type0*WWTree->nu_pz_type0));
-    NU0_puppi_jes_up.SetPxPyPzE(W_Met_jes_up.Pt()*TMath::Cos(W_Met_jes_up.Phi()),W_Met_jes_up.Pt()*TMath::Sin(W_Met_jes_up.Phi()),pz1_type0_jes_up,TMath::Sqrt(WWTree->pfMETpuppi_jes_up*WWTree->pfMETpuppi_jes_up+pz1_type0_jes_up*pz1_type0_jes_up));
-    NU0_puppi_jes_dn.SetPxPyPzE(W_Met_jes_dn.Pt()*TMath::Cos(W_Met_jes_dn.Phi()),W_Met_jes_dn.Pt()*TMath::Sin(W_Met_jes_dn.Phi()),pz1_type0_jes_dn,TMath::Sqrt(WWTree->pfMETpuppi_jes_dn*WWTree->pfMETpuppi_jes_dn+pz1_type0_jes_dn*pz1_type0_jes_dn));
-    
-    NU2_puppi.SetPxPyPzE(info->puppETC*TMath::Cos(info->puppETCphi),info->puppETC*TMath::Sin(info->puppETCphi),WWTree->nu_pz_type2,TMath::Sqrt(WWTree->pfMETpuppi_Corr*WWTree->pfMETpuppi_Corr+WWTree->nu_pz_type2*WWTree->nu_pz_type2));
-    NU1_puppi.SetPxPyPzE(info->puppETC*TMath::Cos(info->puppETCphi),info->puppETC*TMath::Sin(info->puppETCphi),WWTree->nu_pz_run2,TMath::Sqrt(WWTree->pfMETpuppi_Corr*WWTree->pfMETpuppi_Corr+WWTree->nu_pz_run2*WWTree->nu_pz_run2));
-  
-    W_puppi_type2 = LEP1 + NU2_puppi;
-    W_puppi_type0 = LEP1 + NU0_puppi;
-    W_puppi_run2 = LEP1 + NU1_puppi;
-
-    WWTree->v_puppi_pt_type2 = W_puppi_type2.Pt();
-    WWTree->v_puppi_pt_type0 = W_puppi_type0.Pt();
-    WWTree->v_puppi_pt_run2 = W_puppi_run2.Pt();
-    WWTree->v_puppi_eta_type2 = W_puppi_type2.Eta();
-    WWTree->v_puppi_eta_type0 = W_puppi_type0.Eta();
-    WWTree->v_puppi_eta_run2 = W_puppi_run2.Eta();
-    WWTree->v_puppi_phi = W_puppi_type2.Phi();
-    WWTree->v_puppi_mt_type2 = TMath::Sqrt(2*LEP1.Et()*NU2_puppi.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU2_puppi))));
-    WWTree->v_puppi_mt_type0 = TMath::Sqrt(2*LEP1.Et()*NU0_puppi.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU0_puppi))));
-    WWTree->v_puppi_mt_run2 = TMath::Sqrt(2*LEP1.Et()*NU1_puppi.Et()*(1-TMath::Cos(LEP1.DeltaPhi(NU1_puppi))));
-    WWTree->v_puppi_mass_type2 = W_puppi_type2.M();
-    WWTree->v_puppi_mass_type0 = W_puppi_type0.M();
-    WWTree->v_puppi_mass_run2 = W_puppi_run2.M();
-      
     ///////////THE FAT JET - AK8
     float tempTTbarMass=0.;
     float tempMassW = 3000.0;
@@ -1372,70 +806,7 @@ int main (int argc, char** argv)
     WWTree->ungroomed_PuppiAK8_jet_mass_jes_dn = JET_PuppiAK8_jes_dn.M();// calculated with softdrop corrected mass
     //////////////////ANGULAR VARIABLES
     WWTree->deltaR_Wjet_GenReco = deltaR(WWTree->hadW_eta_gen,WWTree->hadW_phi_gen,JET.Eta(),JET.Phi());
-    WWTree->deltaR_lak8jet = deltaR(JET.Eta(),JET.Phi(),LEP1.Eta(),LEP1.Phi());
-    WWTree->deltaphi_METak8jet = deltaPhi(JET.Phi(),NU2.Phi());
-    WWTree->deltaphi_Vak8jet = deltaPhi(JET.Phi(),W_type2.Phi());
-    WWTree->deltaR_lPuppiak8jet = deltaR(JET_PuppiAK8.Eta(),JET_PuppiAK8.Phi(),LEP1.Eta(),LEP1.Phi());
-    WWTree->deltaphi_METPuppiak8jet = deltaPhi(JET_PuppiAK8.Phi(),NU2_puppi.Phi());
-    WWTree->deltaphi_VPuppiak8jet = deltaPhi(JET_PuppiAK8.Phi(),W_puppi_type2.Phi());
-    if (WWTree->deltaR_lak8jet>(TMath::Pi()/2.0) && fabs(WWTree->deltaphi_METak8jet)>2.0 && fabs(WWTree->deltaphi_Vak8jet)>2.0 && WWTree->nGoodAK8jets>0)
-      WWTree->issignal=1;
-    if (WWTree->deltaR_lPuppiak8jet>(TMath::Pi()/2.0) && fabs(WWTree->deltaphi_METPuppiak8jet)>2.0 && fabs(WWTree->deltaphi_VPuppiak8jet)>2.0 && nGoodPuppiAK8jets>0)
-      WWTree->issignal_PuppiAK8=1;
-
-    if(WWTree->l_pt2>0){
-    	WWTree->deltaR_l2Puppiak8jet = deltaR(JET_PuppiAK8.Eta(),JET_PuppiAK8.Phi(),LEP2.Eta(),LEP2.Phi());
-    	WWTree->deltaR_VLepPuppiak8jet = deltaR(JET_PuppiAK8.Eta(),JET_PuppiAK8.Phi(),(LEP1+LEP2).Eta(),(LEP1+LEP2).Phi());
-    }
     
-    
-    //////////////////FOUR-BODY INVARIANT MASS
-    WWTree->mass_lvj_type0 = (LEP1 + NU0 + JET_PuppiAK8).M();
-    WWTree->mass_lvj_type2 = (LEP1 + NU2 + JET_PuppiAK8).M();
-    WWTree->mass_lvj_run2  = (LEP1 + NU1 + JET_PuppiAK8).M();
-    if (isnan(WWTree->mass_lvj_run2) == 1)
-    	cout<<"==============> Run2 mass is NAN"<<"\t LEP1 mass = "<<LEP1.M()<<"\tNUmass = "<<NU1.M()<<"\t"<<NU1.Px()<<"\t"<<NU1.Py()<<"\t"<<NU1.Pz()<<"\t"<<NU1.E()<<endl;
-    WWTree->mass_lvj_type0_met_jes_up = (LEP1 + NU0_jes_up + JET_PuppiAK8_jes_up).M();
-    WWTree->mass_lvj_type0_met_jes_dn = (LEP1 + NU0_jes_dn + JET_PuppiAK8_jes_dn).M();
-    WWTree->mass_lvj_type0_met_jer_up = (LEP1 + NU0_jer_up + JET_PuppiAK8).M();
-    WWTree->mass_lvj_type0_met_jer_dn = (LEP1 + NU0_jer_dn + JET_PuppiAK8).M();
-    
-    WWTree->LepWEta = (LEP1 + NU0_puppi ).Eta();
-    WWTree->LepWRapidity = (LEP1 + NU0_puppi ).Rapidity();
-    WWTree->HadWEta = (JET_PuppiAK8 ).Eta();
-    WWTree->HadWRapidity = (JET_PuppiAK8 ).Rapidity();
-    WWTree->WWEta = (LEP1 + NU0_puppi + JET_PuppiAK8 ).Eta();
-    WWTree->WWRapidity = (LEP1 + NU0_puppi + JET_PuppiAK8 ).Rapidity();
-    WWTree->pt_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).Pt();
-    WWTree->pt_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).Pt();
-    WWTree->pt_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).Pt();
-    WWTree->eta_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).Eta();
-    WWTree->eta_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).Eta();
-    WWTree->eta_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).Eta();
-    WWTree->rapidity_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).Rapidity();
-    WWTree->rapidity_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).Rapidity();
-    WWTree->rapidity_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).Rapidity();
-    WWTree->phi_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).Phi();
-    WWTree->phi_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).Phi();
-    WWTree->phi_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).Phi();
-    WWTree->energy_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).E();
-    WWTree->energy_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).E();
-    WWTree->energy_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).E();
-    WWTree->mass_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).M();
-    WWTree->mass_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).M();
-    WWTree->mass_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).M();
-    WWTree->mt_lvj_type0_PuppiAK8 = (LEP1 + NU0_puppi + JET_PuppiAK8).Mt();
-    WWTree->mt_lvj_type2_PuppiAK8 = (LEP1 + NU2_puppi + JET_PuppiAK8).Mt();
-    WWTree->mt_lvj_run2_PuppiAK8  = (LEP1 + NU1_puppi + JET_PuppiAK8).Mt();
-    WWTree->mass_lvj_type0_met_PuppiAK8_jes_up = (LEP1 + NU0_puppi_jes_up + JET_PuppiAK8_jes_up).M();
-    WWTree->mass_lvj_type0_met_PuppiAK8_jes_dn = (LEP1 + NU0_puppi_jes_dn + JET_PuppiAK8_jes_dn).M();
-    
-    if(WWTree->l_pt2>0){
-    WWTree->pt_llj_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Pt();
-    WWTree->eta_llj_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Eta();
-    WWTree->phi_llj_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Phi();
-    WWTree->mass_llj_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).M();
-    }
 
    // if (WWTree->mass_lvj_type0_PuppiAK8 < 500 || WWTree->mass_lvj_type2_PuppiAK8 < 500 || WWTree->mass_lvj_run2_PuppiAK8 < 500) continue;    // cut on WW invariant mass 
     cutEff[8]++;
@@ -1544,12 +915,13 @@ int main (int argc, char** argv)
       //------------------------------
     }
 
+    int nVBF1=-1, nVBF2=-1; //position of the two vbf jets
     if (indexGoodVBFJets.size()>=2) 
     {
       cutEff[9]++;
       float tempPtMax=0.;
       float DRvbf;
-      int nVBF1=-1, nVBF2=-1; //position of the two vbf jets
+      nVBF1=-1; nVBF2=-1; //position of the two vbf jets
       
       for (std::size_t i=0; i<indexGoodVBFJets.size()-1; i++) {
         for ( std::size_t ii=i+1; ii<indexGoodVBFJets.size(); ii++) {
@@ -1597,6 +969,8 @@ int main (int argc, char** argv)
           nVBF2 = indexGoodVBFJets.at(ii); //save position of the 2nd vbf jet
         }
       }
+      if (nVBF1 == -1 ) continue;
+      if (nVBF2 == -1 ) continue;
       if (nVBF1!=-1 && nVBF2 !=-1) OnlyTwoVBFTypeJets=1;
       
       if (nVBF1!=-1 && nVBF2!=-1) //save infos for vbf jet pair
@@ -1672,6 +1046,72 @@ int main (int argc, char** argv)
       }
     }
     indexGoodVBFJets.clear();
+    jetArr->Clear();
+    jetBr->GetEntry(jentry);
+    double ptBalanceForLepSearch;
+    //cout<<"DEBUG : 1 : nVBF1 = "<<nVBF1<<"\tnVBF2 = "<<nVBF2<<endl;
+    for ( int i=0; i<jetArr->GetEntries(); i++) //loop on AK4 jet
+    {
+      if (i == nVBF1 || i == nVBF2) continue;
+      const baconhep::TJet *jet = (baconhep::TJet*)((*jetArr)[i]);
+      if (!passJetLooseSel(jet)) continue;
+      if (jet->pt<=30) continue;
+      indexGoodVBFJets.push_back(i); //save index of the "good" vbf jets candidates
+    }
+    double min = 1000.0;
+    for (std::size_t i=0; i<indexGoodVBFJets.size()-1; i++) {
+      for ( std::size_t ii=i+1; ii<indexGoodVBFJets.size(); ii++) {
+        const baconhep::TJet *jet1 = (baconhep::TJet*)((*jetArr)[indexGoodVBFJets.at(i)]);
+        const baconhep::TJet *jet2 = (baconhep::TJet*)((*jetArr)[indexGoodVBFJets.at(ii)]);
+        if (jet1->pt < 30) continue;
+        if (jet2->pt < 50) continue;
+        VBF1.SetPtEtaPhiM(jet1->pt,jet1->eta,jet1->phi,jet1->mass);
+        VBF2.SetPtEtaPhiM(jet2->pt,jet2->eta,jet2->phi,jet2->mass);
+        TOT = VBF1 + VBF2;
+	ptBalanceForLepSearch = TOT.Pt() - ( WWTree->ungroomed_PuppiAK8_jet_pt + WWTree->vbf_maxpt_j1_pt + WWTree->vbf_maxpt_j2_pt); 
+	if (min > ptBalanceForLepSearch)
+	{
+		WWTree->l_pt1 = jet1->pt;
+		WWTree->l_eta1 = jet1->eta; 
+		WWTree->l_phi1 = jet1->phi;
+		WWTree->l_e1 = jet1->mass;
+		WWTree->l_charge1 = jet1->q;
+		LEP1 = VBF1;
+
+		WWTree->l_pt2 = jet2->pt;
+		WWTree->l_eta2 = jet2->eta; 
+		WWTree->l_phi2 = jet2->phi;
+		WWTree->l_e2 = jet2->mass;
+		WWTree->l_charge2 = jet2->q;
+		LEP2 = VBF2;
+
+		WWTree->dilep_pt  = (LEP1+LEP2).Pt();
+		WWTree->dilep_eta = (LEP1+LEP2).Eta();
+		WWTree->dilep_phi = (LEP1+LEP2).Phi();	
+		WWTree->dilep_m = (LEP1+LEP2).M();	
+
+		min = ptBalanceForLepSearch;
+	}
+
+      }
+    }
+
+    
+    //////////////////FOUR-BODY INVARIANT MASS
+    WWTree->mass_lvj_type0 = (LEP1 + LEP2 + JET_PuppiAK8).M();
+    WWTree->WWEta = (LEP1 + LEP2 + JET_PuppiAK8 ).Eta();
+    WWTree->WWRapidity = (LEP1 + LEP2 + JET_PuppiAK8 ).Rapidity();
+    WWTree->pt_lvj_type0_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Pt();
+    WWTree->eta_lvj_type0_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Eta();
+    WWTree->rapidity_lvj_type0_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Rapidity();
+    WWTree->phi_lvj_type0_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Phi();
+    WWTree->energy_lvj_type0_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).E();
+    WWTree->mt_lvj_type0_PuppiAK8 = (LEP1 + LEP2 + JET_PuppiAK8).Mt();
+    WWTree->LepWEta = (LEP1 + LEP2 ).Eta();
+    WWTree->LepWRapidity = (LEP1 + LEP2 ).Rapidity();
+    WWTree->HadWEta = (JET_PuppiAK8 ).Eta();
+    WWTree->HadWRapidity = (JET_PuppiAK8 ).Rapidity();
+    
 
 ///////////////////////////////////////////////////////////////////////////////////////
     if (OnlyTwoVBFTypeJets == 1) WWTree->isVBF=1;
@@ -1730,140 +1170,73 @@ int main (int argc, char** argv)
 //
 //////////////////////////////////////////////////
     if (WWTree->isVBF && nGoodPuppiAK8jets!=0){
-    WWTree->PtBalance_type0 = ((JET_PuppiAK8+LEP1 + NU0).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + NU0).Pt());
-    WWTree->PtBalance_type0_jes_up = ((JET_PuppiAK8_jes_up+LEP1 + NU0_jes_up).Pt())/(JET_PuppiAK8_jes_up.Pt()+(LEP1 + NU0_jes_up).Pt());
-    WWTree->PtBalance_type0_jes_dn = ((JET_PuppiAK8_jes_dn+LEP1 + NU0_jes_dn).Pt())/(JET_PuppiAK8_jes_dn.Pt()+(LEP1 + NU0_jes_dn).Pt());
-    WWTree->PtBalance_type0_jer_up = ((JET_PuppiAK8+LEP1 + NU0_jer_up).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + NU0_jer_up).Pt());
-    WWTree->PtBalance_type0_jer_dn = ((JET_PuppiAK8+LEP1 + NU0_jer_dn).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + NU0_jer_dn).Pt());
-    WWTree->PtBalance_type2 = ((JET_PuppiAK8+LEP1 + NU2).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + NU2).Pt());
-    WWTree->PtBalance_run2  = ((JET_PuppiAK8+LEP1 + NU1).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + NU1).Pt());
+    WWTree->PtBalance_type0 = ((JET_PuppiAK8+LEP1 + LEP2).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + LEP2).Pt());
 
-    WWTree->BosonCentrality_type0 = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+NU0).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+NU0).Eta())  );
+    WWTree->BosonCentrality_type0 = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+LEP2).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+LEP2).Eta())  );
 
-    WWTree->BosonCentrality_type0_jes_up = GetMin( GetMin(JET_PuppiAK8_jes_up.Eta(),(LEP1+NU0_jes_up).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta_jes_up, WWTree->vbf_maxpt_j2_eta_jes_up) , GetMax(WWTree->vbf_maxpt_j1_eta_jes_up,WWTree->vbf_maxpt_j2_eta_jes_up) - GetMax(JET_PuppiAK8_jes_up.Eta(),(LEP1+NU0_jes_up).Eta())  );
-    WWTree->BosonCentrality_type0_jes_dn = GetMin( GetMin(JET_PuppiAK8_jes_dn.Eta(),(LEP1+NU0_jes_dn).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta_jes_dn, WWTree->vbf_maxpt_j2_eta_jes_dn) , GetMax(WWTree->vbf_maxpt_j1_eta_jes_dn,WWTree->vbf_maxpt_j2_eta_jes_dn) - GetMax(JET_PuppiAK8_jes_dn.Eta(),(LEP1+NU0_jes_dn).Eta())  );
 
-    WWTree->BosonCentrality_type0_jer_up = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+NU0_jer_up).Eta())- GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+NU0_jer_up).Eta())  );
-    WWTree->BosonCentrality_type0_jer_dn = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+NU0_jer_dn).Eta())- GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+NU0_jer_dn).Eta())  );
 
-    WWTree->BosonCentrality_type2 = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+NU2).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+NU2).Eta())  );
-    WWTree->BosonCentrality_run2  = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+NU1).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+NU1).Eta())  );
     if (JET_PuppiAK8.Pt()>0){
     double a_costheta1, a_costheta2, a_costhetastar, a_Phi, a_Phi1;
 
-    computeAngles( LEP1 + NU0 + JET_PuppiAK8, LEP1 + NU0, LEP1, NU0, JET_PuppiAK8,  SJ1, SJ2, a_costheta1, a_costheta2, a_Phi, a_costhetastar, a_Phi1 );
+    computeAngles( LEP1 + LEP2 + JET_PuppiAK8, LEP1 + LEP2, LEP1, LEP2, JET_PuppiAK8,  SJ1, SJ2, a_costheta1, a_costheta2, a_Phi, a_costhetastar, a_Phi1 );
     WWTree->costheta1_type0 = (float) a_costheta1;                
-    if (NU0.Beta() > 1.0) printf("------------- NU0 beta = %.17g\n", NU0.Beta());
-    if (NU0.Beta() > 1.0) std::cout << "#######    NU0 beta = 1 + " << (NU0.Beta() - 1.0) << std::endl;
+    if (LEP2.Beta() > 1.0) printf("------------- LEP2 beta = %.17g\n", LEP2.Beta());
+    if (LEP2.Beta() > 1.0) std::cout << "#######    LEP2 beta = 1 + " << (LEP2.Beta() - 1.0) << std::endl;
     
     if (isnan(WWTree->costheta1_type0) == 1)
     {
     	cout<<jentry2<< "\tcostheta1_type0 is NaN" << endl;
-	if (NU0.Beta()>1) cout<<"beta > 1"<<endl;
-	printf("------------- NU0 beta = %.17g\n", NU0.Beta());
-	std::cout << "#######    NU0 beta = 1 + " << (NU0.Beta() - 1.0) << std::endl;
-	printf(" Neutrino mass = %.17g\n", NU0.M());
+	if (LEP2.Beta()>1) cout<<"beta > 1"<<endl;
+	printf("------------- LEP2 beta = %.17g\n", LEP2.Beta());
+	std::cout << "#######    LEP2 beta = 1 + " << (LEP2.Beta() - 1.0) << std::endl;
+	printf(" Neutrino mass = %.17g\n", LEP2.M());
     }
     WWTree->costheta2_type0 = (float) a_costheta2;
     if (isnan(WWTree->costheta2_type0) == 1)
     {	
     	cout<<jentry2<< "\tcostheta2_type0 is NaN" << endl;
-	if (NU0.Beta()>1) cout<<"beta > 1"<<endl;
-	printf("------------- NU0 beta = %.17g\n", NU0.Beta());
-	std::cout << "#######    NU0 beta = 1 + " << (NU0.Beta() - 1.0) << std::endl;
-	printf(" Neutrino mass = %.17g\n", NU0.M());
+	if (LEP2.Beta()>1) cout<<"beta > 1"<<endl;
+	printf("------------- LEP2 beta = %.17g\n", LEP2.Beta());
+	std::cout << "#######    LEP2 beta = 1 + " << (LEP2.Beta() - 1.0) << std::endl;
+	printf(" Neutrino mass = %.17g\n", LEP2.M());
 	}
     WWTree->costhetastar_type0 = (float) a_costhetastar;
     if (isnan(WWTree->costhetastar_type0) == 1)
     	{cout<< jentry2 << "\tWWTree->costhetastar_type0 is NaN" << endl;
-	if (NU0.Beta()>1) cout<<"beta > 1"<<endl;
-	printf("------------- NU0 beta = %.17g\n", NU0.Beta());
-	std::cout << "#######    NU0 beta = 1 + " << (NU0.Beta() - 1.0) << std::endl;
-	printf(" Neutrino mass = %.17g\n", NU0.M());
+	if (LEP2.Beta()>1) cout<<"beta > 1"<<endl;
+	printf("------------- LEP2 beta = %.17g\n", LEP2.Beta());
+	std::cout << "#######    LEP2 beta = 1 + " << (LEP2.Beta() - 1.0) << std::endl;
+	printf(" Neutrino mass = %.17g\n", LEP2.M());
 	}
     WWTree->phi_type0 = (float) a_Phi;
     if (isnan(WWTree->phi_type0) == 1)
     	{cout<<jentry2<< "\tphi_type0 is NaN" << endl;
-	if (NU0.Beta()>1) cout<<"beta > 1"<<endl;
-	printf("------------- NU0 beta = %.17g\n", NU0.Beta());
-	std::cout << "#######    NU0 beta = 1 + " << (NU0.Beta() - 1.0) << std::endl;
-	printf(" Neutrino mass = %.17g\n", NU0.M());
+	if (LEP2.Beta()>1) cout<<"beta > 1"<<endl;
+	printf("------------- LEP2 beta = %.17g\n", LEP2.Beta());
+	std::cout << "#######    LEP2 beta = 1 + " << (LEP2.Beta() - 1.0) << std::endl;
+	printf(" Neutrino mass = %.17g\n", LEP2.M());
 	}
     WWTree->phi1_type0 = (float) a_Phi1;
     if (isnan(WWTree->phi1_type0) == 1)
     	{cout<<jentry2<< "\tphi1_type0 is NaN" << endl;
-	if (NU0.Beta()>1) cout<<"beta > 1"<<endl;
-	printf("------------- NU0 beta = %.17g\n", NU0.Beta());
-	std::cout << "#######    NU0 beta = 1 + " << (NU0.Beta() - 1.0) << std::endl;
-	printf(" Neutrino mass = %.17g\n", NU0.M());
+	if (LEP2.Beta()>1) cout<<"beta > 1"<<endl;
+	printf("------------- LEP2 beta = %.17g\n", LEP2.Beta());
+	std::cout << "#######    LEP2 beta = 1 + " << (LEP2.Beta() - 1.0) << std::endl;
+	printf(" Neutrino mass = %.17g\n", LEP2.M());
 	}
 
-    computeAngles( LEP1 + NU2 + JET_PuppiAK8, LEP1 + NU2, LEP1, NU2, JET_PuppiAK8,  SJ1, SJ2, a_costheta1, a_costheta2, a_Phi, a_costhetastar, a_Phi1);
-    WWTree->costheta1_type2 = (float) a_costheta1;                
-    WWTree->costheta2_type2 = (float) a_costheta2;
-    WWTree->costhetastar_type2 = (float) a_costhetastar;
-    WWTree->phi_type2 = (float) a_Phi;
-    WWTree->phi1_type2 = (float) a_Phi1;
-
-    computeAngles( LEP1 + NU1 + JET_PuppiAK8, LEP1 + NU1, LEP1, NU1, JET_PuppiAK8,  SJ1, SJ2, a_costheta1, a_costheta2, a_Phi, a_costhetastar, a_Phi1);
-    WWTree->costheta1_run2 = (float) a_costheta1;                
-    WWTree->costheta2_run2 = (float) a_costheta2;                
-    WWTree->costhetastar_run2 = (float) a_costhetastar;
-    WWTree->phi_run2 = (float) a_Phi;
-    WWTree->phi1_run2 = (float) a_Phi1;
-
     if (fabs(VBF1.Eta() - VBF2.Eta()) == 0.0)
-    {  	 WWTree->VBSCentrality_type0 = -999.0;	 WWTree->VBSCentrality_type2 = -999.0;
-    	 WWTree->VBSCentrality_run2 = -999.0;    }
+    {  	 WWTree->VBSCentrality_type0 = -999.0;	}
     else
     {
-    	WWTree->VBSCentrality_type0 = (fabs(VBF1.Eta()- (((LEP1 + NU0).Eta()+JET_PuppiAK8.Eta()))- VBF2.Eta() ))/fabs(VBF1.Eta() - VBF2.Eta());
-    	WWTree->VBSCentrality_type2 = (fabs(VBF1.Eta()- (((LEP1 + NU2).Eta()+JET_PuppiAK8.Eta()))- VBF2.Eta() ))/fabs(VBF1.Eta() - VBF2.Eta());
-    	WWTree->VBSCentrality_run2 = (fabs(VBF1.Eta()- (((LEP1 + NU1).Eta()+JET_PuppiAK8.Eta()))- VBF2.Eta() ))/fabs(VBF1.Eta() - VBF2.Eta());
+    	WWTree->VBSCentrality_type0 = (fabs(VBF1.Eta()- (((LEP1 + LEP2).Eta()+JET_PuppiAK8.Eta()))- VBF2.Eta() ))/fabs(VBF1.Eta() - VBF2.Eta());
     }
-     WWTree->RpT_type0 = (JET_PuppiAK8.Pt()*(LEP1 + NU0).Pt())/(VBF1.Pt()*VBF2.Pt());
-     WWTree->RpT_type2 = (JET_PuppiAK8.Pt()*(LEP1 + NU2).Pt())/(VBF1.Pt()*VBF2.Pt());
-     WWTree->RpT_run2 =  (JET_PuppiAK8.Pt()*(LEP1 + NU1).Pt())/(VBF1.Pt()*VBF2.Pt());
+     WWTree->RpT_type0 = (JET_PuppiAK8.Pt()*(LEP1 + LEP2).Pt())/(VBF1.Pt()*VBF2.Pt());
      WWTree->ZeppenfeldWH = JET_PuppiAK8.Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->ZeppenfeldWH_jes_up = JET_PuppiAK8_jes_up.Eta() - (VBF1_jes_up.Eta() + VBF2_jes_up.Eta())/2.0;
-     WWTree->ZeppenfeldWH_jes_dn = JET_PuppiAK8_jes_dn.Eta() - (VBF1_jes_up.Eta() + VBF2_jes_up.Eta())/2.0;
      }
-     WWTree->ZeppenfeldWL_type0 = (LEP1 + NU0).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->ZeppenfeldWL_type0_jes_up = (LEP1 + NU0_jes_up).Eta() - (VBF1_jes_up.Eta() + VBF2_jes_up.Eta())/2.0;
-     WWTree->ZeppenfeldWL_type0_jes_dn = (LEP1 + NU0_jes_dn).Eta() - (VBF1_jes_dn.Eta() + VBF2_jes_dn.Eta())/2.0;
-     WWTree->ZeppenfeldWL_type0_jer_up = (LEP1 + NU0_jer_up).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->ZeppenfeldWL_type0_jer_dn = (LEP1 + NU0_jer_dn).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->ZeppenfeldWL_type2 = (LEP1 + NU2).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->ZeppenfeldWL_run2 = (LEP1 + NU1).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->LeptonProjection_type0 = (LEP1.Pt()*cos(LEP1.Theta()-(LEP1 + NU0).Theta()))/(LEP1 + NU0).Pt();
-     WWTree->LeptonProjection_type2 = (LEP1.Pt()*cos(LEP1.Theta()-(LEP1 + NU2).Theta()))/(LEP1 + NU2).Pt();
-     WWTree->LeptonProjection_run2  = (LEP1.Pt()*cos(LEP1.Theta()-(LEP1 + NU1).Theta()))/(LEP1 + NU1).Pt();
-    }
-    if (WWTree->isVBF && nGoodPuppiAK8jets!=0 && WWTree->l_pt2>0){
-    WWTree->PtBalance_2Lep = ((JET_PuppiAK8+LEP1 + LEP2).Pt())/(JET_PuppiAK8.Pt()+(LEP1 + LEP2).Pt());
-    WWTree->BosonCentrality_2Lep = GetMin( GetMin(JET_PuppiAK8.Eta(),(LEP1+LEP2).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta, WWTree->vbf_maxpt_j2_eta) , GetMax(WWTree->vbf_maxpt_j1_eta,WWTree->vbf_maxpt_j2_eta) - GetMax(JET_PuppiAK8.Eta(),(LEP1+LEP2).Eta())  );
-    WWTree->BosonCentrality_2Lep_jes_up = GetMin( GetMin(JET_PuppiAK8_jes_up.Eta(),(LEP1+LEP2).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta_jes_up, WWTree->vbf_maxpt_j2_eta_jes_up) , GetMax(WWTree->vbf_maxpt_j1_eta_jes_up,WWTree->vbf_maxpt_j2_eta_jes_up) - GetMax(JET_PuppiAK8_jes_up.Eta(),(LEP1+LEP2).Eta())  );
-    WWTree->BosonCentrality_2Lep_jes_dn = GetMin( GetMin(JET_PuppiAK8_jes_dn.Eta(),(LEP1+LEP2).Eta())-GetMin(WWTree->vbf_maxpt_j1_eta_jes_dn, WWTree->vbf_maxpt_j2_eta_jes_dn) , GetMax(WWTree->vbf_maxpt_j1_eta_jes_dn,WWTree->vbf_maxpt_j2_eta_jes_dn) - GetMax(JET_PuppiAK8_jes_dn.Eta(),(LEP1+LEP2).Eta())  );
-    if (JET_PuppiAK8.Pt()>0){
-    double a_costheta1, a_costheta2, a_costhetastar, a_Phi, a_Phi1;
-
-    computeAngles( LEP1 + LEP2 + JET_PuppiAK8, LEP1 + LEP2, LEP1, LEP2, JET_PuppiAK8,  SJ1, SJ2, a_costheta1, a_costheta2, a_Phi, a_costhetastar, a_Phi1 );
-    WWTree->costheta1_2Lep = (float) a_costheta1;                
-    WWTree->costheta2_2Lep = (float) a_costheta2;
-    WWTree->costhetastar_2Lep = (float) a_costhetastar;
-    WWTree->phi_2Lep = (float) a_Phi;
-    WWTree->phi1_2Lep = (float) a_Phi1;
-
-    if (fabs(VBF1.Eta() - VBF2.Eta()) == 0.0)
-    	 WWTree->VBSCentrality_2Lep = -999.0;
-    else
-    	 WWTree->VBSCentrality_2Lep = (fabs(VBF1.Eta()- (((LEP1 + LEP2).Eta()+JET_PuppiAK8.Eta()))- VBF2.Eta() ))/fabs(VBF1.Eta() - VBF2.Eta());
-     WWTree->RpT_2Lep = (JET_PuppiAK8.Pt()*(LEP1 + LEP2).Pt())/(VBF1.Pt()*VBF2.Pt());
-     }
-     WWTree->ZeppenfeldWL_2Lep = (LEP1 + LEP2).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
-     WWTree->ZeppenfeldWL_2Lep_jes_up = (LEP1 + LEP2).Eta() - (VBF1_jes_up.Eta() + VBF2_jes_up.Eta())/2.0;
-     WWTree->ZeppenfeldWL_2Lep_jes_dn = (LEP1 + LEP2).Eta() - (VBF1_jes_dn.Eta() + VBF2_jes_dn.Eta())/2.0;
-     WWTree->LeptonProjection_2Lep = (LEP1.Pt()*cos(LEP1.Theta()-(LEP1 + LEP2).Theta()))/(LEP1 + LEP2).Pt();
+     WWTree->ZeppenfeldWL_type0 = (LEP1 + LEP2).Eta() - (VBF1.Eta() + VBF2.Eta())/2.0;
+     WWTree->LeptonProjection_type0 = (LEP1.Pt()*cos(LEP1.Theta()-(LEP1 + LEP2).Theta()))/(LEP1 + LEP2).Pt();
     }
 
 /////////////////////////////////////////////////// END	CHS ANGULAR VARIABLES
