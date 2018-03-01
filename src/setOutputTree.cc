@@ -677,6 +677,7 @@ ZeppenfeldWH_jes_dn	=-999;
   //AK4_BIG_gen_mass=-999;
   //deltaR_AK4=-999;
   PtBalance_type0		=-999.;
+dPtForLepMETBalance	=-999;
 PtBalance_type0_jes_up	=-999;
 PtBalance_type0_jes_dn	=-999;
 PtBalance_type0_jer_up	=-999;
@@ -1380,6 +1381,7 @@ fTree->Branch("ZeppenfeldWL_type0_jer_dn", &ZeppenfeldWL_type0_jer_dn, "Zeppenfe
   fTree->Branch("ZeppenfeldWL_run2", &ZeppenfeldWL_run2 , "ZeppenfeldWL_run2/F");
   fTree->Branch("LeptonProjection_run2", &LeptonProjection_run2 , "LeptonProjection_run2/F");
   fTree->Branch("PtBalance_type0", &PtBalance_type0 , "PtBalance_type0/F");
+fTree->Branch("dPtForLepMETBalance", &dPtForLepMETBalance, "dPtForLepMETBalance/F");
 fTree->Branch("PtBalance_type0_jes_up", &PtBalance_type0_jes_up, "PtBalance_type0_jes_up/F");
 fTree->Branch("PtBalance_type0_jes_dn", &PtBalance_type0_jes_dn, "PtBalance_type0_jes_dn/F");
 fTree->Branch("PtBalance_type0_jer_up", &PtBalance_type0_jer_up, "PtBalance_type0_jer_up/F");

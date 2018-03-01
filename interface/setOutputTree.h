@@ -40,6 +40,7 @@ class setOutputTree {
   float totalEventWeight_3;
 
   float totalEventWeight_2Lep;
+  float dPtForLepMETBalance;
   float PtBalance_type0_jes_up;
   float PtBalance_type0_jes_dn;
   float PtBalance_type0_jer_up;
