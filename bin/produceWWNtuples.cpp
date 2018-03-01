@@ -746,6 +746,8 @@ int main (int argc, char** argv)
         const baconhep::TJet *jet2 = (baconhep::TJet*)((*jetArr)[indexGoodVBFJets.at(ii)]);
         if (jet1->pt < 30) continue;
         if (jet2->pt < 30) continue;
+        if (fabs(jet1->eta) > 2.5) continue;
+        if (fabs(jet2->eta) > 2.5) continue;
         VBF1.SetPtEtaPhiM(jet1->pt,jet1->eta,jet1->phi,jet1->mass);
         VBF2.SetPtEtaPhiM(jet2->pt,jet2->eta,jet2->phi,jet2->mass);
         TOT = VBF1 + VBF2;
