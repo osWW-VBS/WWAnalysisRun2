@@ -472,11 +472,11 @@ int main (int argc, char** argv)
       }
     if(!(WWTree->l_pt1>0)) continue;
     if ((nTightMu+nTightEle)==0) continue; //no leptons with required ID
-    if((nLooseEle+nLooseMu)>2) continue;
-    if(nTightMu>0 && nLooseEle>0) continue;
-    if(nTightEle>0 && nLooseMu>0) continue;
-    if(nTightMu==1 && nLooseMu>1) continue;
-    if(nTightEle==1 && nLooseEle>1) continue;
+    //if((nLooseEle+nLooseMu)>2) continue;
+    //if(nTightMu>0 && nLooseEle>0) continue;
+    //if(nTightEle>0 && nLooseMu>0) continue;
+    //if(nTightMu==1 && nLooseMu>1) continue;
+    //if(nTightEle==1 && nLooseEle>1) continue;
     if(nTightMu>0){
       WWTree->type=0;
       leptonName = "mu";	// Added this part for neutrino pz calculation in case there is w-boson.
