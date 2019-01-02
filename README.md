@@ -20,6 +20,7 @@ It takes in input ntuples produced from miniAOD with the Bacon (https://github.c
 	git clone git@github.com:ksung25/BaconAna.git
 	cd BaconAna
 	git checkout 33ffe39
+        cd  ../
 	mkdir WWAnalysis
 	cd WWAnalysis
 	git clone https://github.com/ram1123/WWAnalysisRun2.git;
